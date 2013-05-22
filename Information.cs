@@ -60,11 +60,16 @@ namespace ARSIE.CART
         {
             if (continuousAttribute.Length != classNumbers.Length)
                 throw new Exception("Not able to calculate entropy values with different numbers of records for attribute and class labels.");
-            double classEntropy = CalcClassEntropy(classNumbers);
             splitValue = 0.0;
             return CalcAttributeGini(continuousAttribute, classNumbers, sort, out splitValue);
         }
 
+        public double CalcGiniIndex(string[] attribute, byte[] classNumbers)
+        {
+            if (attribute.Length != classNumbers.Length)
+                throw new Exception("Not able to calculate entropy values with different numbers of records for attribute and class labels.");
+            return CalcAttributeGini(attribute, classNumbers);
+        }
         /// <summary>
         /// Calculate the information gain value
         /// </summary>
@@ -361,23 +366,41 @@ namespace ARSIE.CART
             IList<string> uniqValues = new List<string>();
             IList<int> samplesCount = new List<int>();
             GetUniqValuesSamples<string>(attributes, out uniqValues, out samplesCount);
-            double AttributeEntro = 0.0;
-            int loop = 0;
-            foreach (string uniqValue in uniqValues)
+            double AttributeEntro = 1.0;
+            long total = classNumbers.Length;
+
+            CombinationGenerator<string> cg = new CombinationGenerator<string>();
+            IEnumerable<List<string>> potentialCombinations = cg.ProduceWithoutRecursion(uniqValues as List<string>);
+            foreach (List<string> combination in potentialCombinations)
             {
-                IList<int> tempClass = new List<int>();
-                for (int i = 0; i < attributes.Length; i++)
+                if (combination.Count != 0 && combination.Count == uniqValues.Count)
                 {
-                    if (attributes[i] == uniqValue)
-                        tempClass.Add(classNumbers[i]);
+                    IList<byte> subsetClass = new List<byte>();
+                    //in
+                    splitVectorByContainage(attributes, classNumbers, combination, true, out subsetClass);
+                    byte[] inClassArray = convertList2Array(subsetClass);
+                    IList<byte> uniqClass = new List<byte>();
+                    IList<int> uniqClassSamples = new List<int>();
+                    GetUniqValuesSamples(inClassArray, out uniqClass, out uniqClassSamples);
+                    double inEntropy = getGiniValuefromProbability(uniqClassSamples);
+                    long subTotal = 0;
+                    foreach (int value in uniqClassSamples)
+                        subTotal += value;
+                    inEntropy = inEntropy * ((subTotal * 1.0) / total);
+                    //Not in
+                    splitVectorByContainage(attributes, classNumbers, combination, true, out subsetClass);
+                    byte[] notInClassArray = convertList2Array(subsetClass);
+                    uniqClass = new List<byte>();
+                    uniqClassSamples = new List<int>();
+                    GetUniqValuesSamples(inClassArray, out uniqClass, out uniqClassSamples);
+                    double notInEntropy = getGiniValuefromProbability(uniqClassSamples);
+                    subTotal = 0;
+                    foreach (int value in uniqClassSamples)
+                        subTotal += value;
+                    notInEntropy = notInEntropy * ((subTotal * 1.0) / total);
+                    if (inEntropy + notInEntropy < AttributeEntro)
+                        AttributeEntro = inEntropy + notInEntropy;
                 }
-                IList<int> tempUniqClass = new List<int>();
-                IList<int> tempSamples = new List<int>();
-                int[] tempClassArray = convertList2Array(tempClass);
-                GetUniqValuesSamples<int>(tempClassArray, out tempUniqClass, out tempSamples);
-                double tempEntro = getGiniValuefromProbability(tempSamples);
-                AttributeEntro += tempEntro * (samplesCount[loop] / attributes.Length);
-                loop++;
             }
             return AttributeEntro;
         }
@@ -419,6 +442,34 @@ namespace ARSIE.CART
                 else       //Smaller than
                 {
                     if (attributes[i] < splitValue)
+                        subsetClassNumbers.Add(classNumbers[i]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Split vector by containage information
+        /// </summary>
+        /// <param name="attributes">a list of continuous attribute value</param>
+        /// <param name="classNumbers">a list of class numbers</param>
+        /// <param name="combination">a list of strings</param>
+        /// <param name="contains">true to find all items within the combination, false otherwise</param>
+        /// <param name="subsetClassNumbers">the corresponding class numbers relevant to the contain condition</param>
+        internal void splitVectorByContainage(string[] attributes, byte[] classNumbers, List<string> combination, bool contains, out IList<byte> subsetClassNumbers)
+        {
+            subsetClassNumbers = new List<byte>();
+            Preprocessor prep = new Preprocessor();
+            
+            for (int i = 0; i < attributes.Length; i++)
+            {
+                if (contains) //Larger than or equal to
+                {
+                    if (prep.contains<string>(attributes[i], combination.ToArray()))
+                        subsetClassNumbers.Add(classNumbers[i]);
+                }
+                else       //Smaller than
+                {
+                    if (!prep.contains<string>(attributes[i], combination.ToArray()))
                         subsetClassNumbers.Add(classNumbers[i]);
                 }
             }

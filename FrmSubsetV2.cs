@@ -158,6 +158,10 @@ namespace ARSIE.SupervisedClassifier
                     {
                         gains[loop] = info.CalcGainRatio(attributes, classes);
                     }
+                    else if (rbtnGINI.Checked)
+                    {
+                        gains[loop] = info.CalcGiniIndex(attributes, classes);
+                    }
                 }
                 DataRow dr = resultDt.NewRow();
                 dr[0] = pair.Key;
@@ -289,11 +293,13 @@ namespace ARSIE.SupervisedClassifier
                     {
                         double[] attributes = prep.getContinousValuesFromDataTable(__refTable, colIndex);
                         double tempOut = 0.0;
-                        
-                        if(rbtnEntropy.Checked)
+
+                        if (rbtnEntropy.Checked)
                             gains[index, loop] = info.CalcInformationGain(attributes, tmpClasses, true, out tempOut);
-                        else if(rbtnGainRatio.Checked)
+                        else if (rbtnGainRatio.Checked)
                             gains[index, loop] = info.CalcGainRatio(attributes, tmpClasses, true, out tempOut);
+                        else if (rbtnGINI.Checked)
+                            gains[index, loop] = info.CalcGiniIndex(attributes, tmpClasses, true, out tempOut);
                     }
                     else
                     {
@@ -302,6 +308,8 @@ namespace ARSIE.SupervisedClassifier
                             gains[index, loop] = info.CalcInformationGain(attributes, tmpClasses);
                         else if (rbtnGainRatio.Checked)
                             gains[index, loop] = info.CalcGainRatio(attributes, tmpClasses);
+                        else if (rbtnGINI.Checked)
+                            gains[index, loop] = info.CalcGiniIndex(attributes, tmpClasses);
                     }
                     loop++;
                 }
